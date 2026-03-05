@@ -8,6 +8,8 @@
 #include "DrawCircleDlg.h"
 #include "afxdialogex.h"
 
+#include "PointCircleRadiusDlg.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -20,15 +22,15 @@ class CAboutDlg : public CDialogEx
 public:
 	CAboutDlg();
 
-// 대화 상자 데이터입니다.
+	// 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_ABOUTBOX };
 #endif
 
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 지원입니다.
 
-// 구현입니다.
+	// 구현입니다.
 protected:
 	DECLARE_MESSAGE_MAP()
 };
@@ -65,6 +67,7 @@ BEGIN_MESSAGE_MAP(CDrawCircleDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_WM_LBUTTONDOWN()
 END_MESSAGE_MAP()
 
 
@@ -100,6 +103,8 @@ BOOL CDrawCircleDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+
+	InitImage();
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -144,6 +149,8 @@ void CDrawCircleDlg::OnPaint()
 	{
 		CDialogEx::OnPaint();
 	}
+
+	ShowImage();
 }
 
 // 사용자가 최소화된 창을 끄는 동안에 커서가 표시되도록 시스템에서
@@ -153,3 +160,180 @@ HCURSOR CDrawCircleDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+
+	if (point.x < 0 || point.y < 0)
+		return;
+
+	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
+	{
+		Circle& targetPointCircle = m_PointCircles[i];
+
+		if (targetPointCircle.IsDefault() == false)
+			continue;
+
+		PointCircleRadiusDlg pointCircleRadiusDlg;
+
+		if (pointCircleRadiusDlg.DoModal() == IDOK)
+		{
+			float inputRadius = pointCircleRadiusDlg.m_Radius;
+
+			if (inputRadius <= 0)
+				return;
+
+			TryAddPointCircle(point, inputRadius);
+
+			UpdateDlg();
+
+			return;
+		}
+	}
+
+	
+
+	CDialogEx::OnLButtonDown(nFlags, point);
+}
+
+void CDrawCircleDlg::InitImage()
+{
+	CRect rect;
+	GetClientRect(&rect);
+
+	m_PullScreenWidth = rect.Width();
+	m_PullScreenHeight = rect.Height();
+
+	if (m_Image != nullptr)
+		m_Image.Destroy();
+
+
+
+	//Height에 따라 할당되는 메모리 주소 값이 달라지기에, 아래 예제처럼 연속적으로 할 거면 반드시 지켜주어야 할 사항
+	m_Image.Create(m_PullScreenWidth, -m_PullScreenHeight, 8);
+
+	if (m_PixelGrayLevel == 8)
+	{
+		static RGBQUAD rgb[256];
+		for (int i = 0; i < 256; i++)
+		{
+			rgb[i].rgbRed = rgb[i].rgbGreen = rgb[i].rgbBlue = i;
+		}
+
+		m_Image.SetColorTable(0, 256, rgb);
+	}
+
+	fm = (unsigned char*)m_Image.GetBits();
+	memset(fm, 255, m_PullScreenWidth * m_PullScreenHeight);
+
+
+	//Invalidate();
+	//ShowImage();
+}
+
+void CDrawCircleDlg::DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled, float boundWidth)
+{
+	int nPitch = m_Image.GetPitch();
+
+	int startPosX = circle.center.x - circle.radius;
+	int startPosY = circle.center.y - circle.radius;
+
+	int endPosX = circle.center.x + circle.radius;
+	int endPosY = circle.center.y + circle.radius;
+
+	int r2 = circle.radius * circle.radius;
+
+
+	if (bIsFilled)
+	{
+		for (int y = startPosY; y <= endPosY; y++)
+		{
+			for (int x = startPosX; x <= endPosX; x++)
+			{
+				int dx = x - circle.center.x;
+				int dy = y - circle.center.y;
+
+				if (dx * dx + dy * dy <= r2)
+				{
+					fm[y * nPitch + x] = 0;
+				}
+			}
+		}
+	}
+
+	else
+	{
+		for (int y = startPosY; y <= endPosY; y++)
+		{
+			for (int x = startPosX; x <= endPosX; x++)
+			{
+				int dx = x - circle.center.x;
+				int dy = y - circle.center.y;
+
+				int dist2 = dx * dx + dy * dy;
+
+				int outer = r2;
+				int inner = (circle.radius - boundWidth) * (circle.radius - boundWidth);
+
+				if (dist2 <= outer && dist2 >= inner)
+				{
+					fm[y * nPitch + x] = 255;
+				}
+			}
+		}
+	}
+}
+
+void CDrawCircleDlg::ShowImage()
+{
+	if (m_Image == nullptr)
+		return;
+
+	CClientDC dc(this);
+	m_Image.Draw(dc, 0, 0);
+}
+
+void CDrawCircleDlg::UpdateDlg()
+{
+	//memset(fm, 255, m_Image.GetWidth() * m_Image.GetHeight());
+	memset(fm, 255, m_PullScreenWidth * m_PullScreenHeight);
+
+	DrawPointCircles();
+
+	ShowImage();
+}
+
+void CDrawCircleDlg::DrawPointCircles()
+{
+	if (m_Image == nullptr)
+		return;
+
+	unsigned char* fm = (unsigned char*)m_Image.GetBits();
+
+	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
+	{
+		Circle targetPointCircle = m_PointCircles[i];
+
+		if (targetPointCircle.IsDefault())
+			continue;
+
+		DrawCircle(fm, targetPointCircle, true);
+
+	}
+}
+
+void CDrawCircleDlg::TryAddPointCircle(CPoint point, float radius)
+{
+	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
+	{
+		Circle& targetPointCircle = m_PointCircles[i];
+
+		if (targetPointCircle.IsDefault())
+		{
+			targetPointCircle.center = point;
+			targetPointCircle.radius = radius;
+			break;
+		}
+	}
+}
