@@ -13,15 +13,21 @@ class CDrawCircleDlg : public CDialogEx
 	struct Circle
 	{
 		CPoint center;
-		float  radius;
+		int  radius;
 
-		Circle() : center(0, 0), radius(-1.0f)
+		Circle() : center(0, 0), radius(-1)
 		{
 		}
 
 		bool IsDefault() const
 		{
-			return (center.x == 0 && center.y == 0) && radius == -1.0f;
+			return (center.x == 0 && center.y == 0) && radius == -1;
+		}
+
+		void SetDefault()
+		{
+			center = CPoint(0, 0);
+			radius = -1;
 		}
 	};
 
@@ -70,15 +76,27 @@ private:
 	void UpdateDlg();
 	void DrawPointCircles();
 
-	//  Circle 관련
+	//Point Circle 관련
 	Circle m_PointCircles[MAX_POINT_CIRCLES];
 	CStatic* m_PointCircleCenterPosTextStatics[MAX_POINT_CIRCLES];
 
-	void TryAddPointCircle(CPoint point, float radius);
-	void DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled = true, float boundWidth = 0.0f);
+	void TryAddPointCircle(CPoint point, int radius);
+	void DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled = true, int boundWidth = 0.0f);
 	void PrintCircleCenterPos(Circle circle, int assignedIndex);
 
 	void CreateCirclePosTextStatics();
 	void HideTextStatic(int index);
+
+	//외접원
+	Circle CircumscCircle;
+	bool DrawCircumscribedCircle();
+
+
 	//Util
+	void ResetAll();
+
+	bool CheckAllPointCircleValid();
+
+public:
+	afx_msg void OnBnClickedResetButton();
 };

@@ -82,6 +82,7 @@ BEGIN_MESSAGE_MAP(CDrawCircleDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_LBUTTONDOWN()
+	ON_BN_CLICKED(IDC_RESET_BUTTON, &CDrawCircleDlg::OnBnClickedResetButton)
 END_MESSAGE_MAP()
 
 
@@ -249,6 +250,8 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 
 	CDialogEx::OnLButtonDown(nFlags, point);
+
+
 }
 
 void CDrawCircleDlg::UpdateDlg()
@@ -257,6 +260,9 @@ void CDrawCircleDlg::UpdateDlg()
 
 	DrawPointCircles();
 
+	if(CheckAllPointCircleValid())
+		DrawCircumscribedCircle();
+
 	Invalidate();
 }
 
@@ -264,8 +270,6 @@ void CDrawCircleDlg::DrawPointCircles()
 {
 	if (m_Image == nullptr)
 		return;
-
-	unsigned char* fm = (unsigned char*)m_Image.GetBits();
 
 	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
 	{
@@ -279,7 +283,7 @@ void CDrawCircleDlg::DrawPointCircles()
 	}
 }
 
-void CDrawCircleDlg::TryAddPointCircle(CPoint point, float radius)
+void CDrawCircleDlg::TryAddPointCircle(CPoint point, int radius)
 {
 	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
 	{
@@ -294,7 +298,7 @@ void CDrawCircleDlg::TryAddPointCircle(CPoint point, float radius)
 	}
 }
 
-void CDrawCircleDlg::DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled, float boundWidth)
+void CDrawCircleDlg::DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled, int boundWidth)
 {
 	int nPitch = m_Image.GetPitch();
 
@@ -316,7 +320,7 @@ void CDrawCircleDlg::DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled
 				int dx = x - circle.center.x;
 				int dy = y - circle.center.y;
 
-				if((x < 0 || y < 0) || ((x >= m_PullScreenWidth || y >= m_PullScreenHeight)))
+				if ((x < 0 || y < 0) || ((x >= m_PullScreenWidth || y >= m_PullScreenHeight)))
 					continue;
 
 				if (dx * dx + dy * dy <= r2)
@@ -340,6 +344,9 @@ void CDrawCircleDlg::DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled
 
 				int outer = r2;
 				int inner = (circle.radius - boundWidth) * (circle.radius - boundWidth);
+
+				if ((x < 0 || y < 0) || ((x >= m_PullScreenWidth || y >= m_PullScreenHeight)))
+					continue;
 
 				if (dist2 <= outer && dist2 >= inner)
 				{
@@ -403,7 +410,7 @@ void CDrawCircleDlg::PrintCircleCenterPos(Circle circle, int assignedIndex)
 
 void CDrawCircleDlg::CreateCirclePosTextStatics()
 {
-	for(CStatic*& textStatic : m_PointCircleCenterPosTextStatics)
+	for (CStatic*& textStatic : m_PointCircleCenterPosTextStatics)
 	{
 		textStatic = new CStatic();
 	}
@@ -419,9 +426,93 @@ void CDrawCircleDlg::HideTextStatic(int index)
 	if (targetStatic == nullptr)
 		return;
 
+	if (::IsWindow(targetStatic->GetSafeHwnd()) == false)
+		return;
+
 	targetStatic->SetWindowText(_T(""));
 
 	targetStatic->MoveWindow(-100, -100, 0, 0);
 
 	targetStatic->ShowWindow(SW_HIDE);
+}
+
+bool CDrawCircleDlg::DrawCircumscribedCircle()
+{
+	CircumscCircle.SetDefault();
+
+	CPoint p1 = m_PointCircles[0].center;
+	CPoint p2 = m_PointCircles[1].center;
+	CPoint p3 = m_PointCircles[2].center;
+
+	double x1 = p1.x;
+	double y1 = p1.y;
+
+	double x2 = p2.x;
+	double y2 = p2.y;
+
+	double x3 = p3.x;
+	double y3 = p3.y;
+
+	double D = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+
+	if (fabs(D) < 0.0001)
+		return false;
+
+	double Ux =
+		((x1 * x1 + y1 * y1) * (y2 - y3) +
+			(x2 * x2 + y2 * y2) * (y3 - y1) +
+			(x3 * x3 + y3 * y3) * (y1 - y2)) / D;
+
+	double Uy =
+		((x1 * x1 + y1 * y1) * (x3 - x2) +
+			(x2 * x2 + y2 * y2) * (x1 - x3) +
+			(x3 * x3 + y3 * y3) * (x2 - x1)) / D;
+
+	double dx = Ux - x1;
+	double dy = Uy - y1;
+
+	double r = dx * dx + dy * dy;
+
+	CircumscCircle.center = CPoint((int)Ux, (int)Uy);
+	CircumscCircle.radius = (int)sqrt(r);
+
+	//DrawCircle(fm, CircumscCircle, false, 5);
+
+	return true;
+}
+
+bool CDrawCircleDlg::CheckAllPointCircleValid()
+{
+	for (Circle& pointCircle : m_PointCircles)
+	{
+		if (pointCircle.IsDefault())
+			return false;
+	}
+
+	return true;
+}
+
+void CDrawCircleDlg::ResetAll()
+{
+	CircumscCircle.SetDefault();
+
+	for (Circle& pointCircle : m_PointCircles)
+	{
+		pointCircle.SetDefault();
+	}
+
+	for(int i = 0; i < sizeof(m_PointCircleCenterPosTextStatics) / sizeof(m_PointCircleCenterPosTextStatics[0]); i++)
+	{
+		HideTextStatic(i);
+	}
+
+	memset(fm, 255, m_PullScreenWidth * m_PullScreenHeight);
+
+	Invalidate();
+}
+
+void CDrawCircleDlg::OnBnClickedResetButton()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	ResetAll();
 }
