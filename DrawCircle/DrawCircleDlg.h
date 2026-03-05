@@ -4,6 +4,8 @@
 
 #pragma once
 
+#define MAX_POINT_CIRCLES 3
+
 // CDrawCircleDlg 대화 상자
 class CDrawCircleDlg : public CDialogEx
 {
@@ -26,6 +28,7 @@ class CDrawCircleDlg : public CDialogEx
 // 생성입니다.
 public:
 	CDrawCircleDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
+	~CDrawCircleDlg();
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
@@ -61,16 +64,21 @@ private:
 	unsigned char* fm;
 	void InitImage();
 
-	void DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled = true, float boundWidth = 0.0f);
+
 	void ShowImage();
 
 	void UpdateDlg();
 	void DrawPointCircles();
 
-	// 유저 Point Circle 관련
-	Circle m_PointCircles[3];
+	//  Circle 관련
+	Circle m_PointCircles[MAX_POINT_CIRCLES];
+	CStatic* m_PointCircleCenterPosTextStatics[MAX_POINT_CIRCLES];
 
 	void TryAddPointCircle(CPoint point, float radius);
+	void DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled = true, float boundWidth = 0.0f);
+	void PrintCircleCenterPos(Circle circle, int assignedIndex);
 
+	void CreateCirclePosTextStatics();
+	void HideTextStatic(int index);
 	//Util
 };
