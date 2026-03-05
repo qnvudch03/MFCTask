@@ -90,6 +90,7 @@ private:
 	//외접원
 	Circle CircumscCircle;
 	bool DrawCircumscribedCircle();
+	void HandleCircumscCircleResult(bool isDrawn);
 
 
 	//Util

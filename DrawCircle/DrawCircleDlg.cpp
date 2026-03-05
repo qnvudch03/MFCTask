@@ -9,6 +9,7 @@
 #include "afxdialogex.h"
 
 #include "PointCircleRadiusDlg.h"
+#include "CircumscCircleDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -234,7 +235,7 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 		if (pointCircleRadiusDlg.DoModal() == IDOK)
 		{
-			float inputRadius = pointCircleRadiusDlg.m_Radius;
+			int inputRadius = pointCircleRadiusDlg.m_Radius;
 
 			if (inputRadius <= 0)
 				return;
@@ -260,8 +261,12 @@ void CDrawCircleDlg::UpdateDlg()
 
 	DrawPointCircles();
 
-	if(CheckAllPointCircleValid())
-		DrawCircumscribedCircle();
+	if (CheckAllPointCircleValid())
+	{
+		bool circumscCircleResult = DrawCircumscribedCircle();
+		HandleCircumscCircleResult(circumscCircleResult);
+	}
+
 
 	Invalidate();
 }
@@ -333,22 +338,30 @@ void CDrawCircleDlg::DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled
 
 	else
 	{
+		float halfWidth = boundWidth * 0.5f;
+
+		int outer = (circle.radius + halfWidth);
+		int inner = (circle.radius - halfWidth);
+
+		int startPosX = circle.center.x - (circle.radius + halfWidth);
+		int startPosY = circle.center.y - (circle.radius + halfWidth);
+
+		int endPosX = circle.center.x + (circle.radius + halfWidth);
+		int endPosY = circle.center.y + (circle.radius + halfWidth);
+
 		for (int y = startPosY; y <= endPosY; y++)
 		{
 			for (int x = startPosX; x <= endPosX; x++)
 			{
+				if (x < 0 || y < 0 || x >= m_PullScreenWidth || y >= m_PullScreenHeight)
+					continue;
+
 				int dx = x - circle.center.x;
 				int dy = y - circle.center.y;
 
 				int dist2 = dx * dx + dy * dy;
 
-				int outer = r2;
-				int inner = (circle.radius - boundWidth) * (circle.radius - boundWidth);
-
-				if ((x < 0 || y < 0) || ((x >= m_PullScreenWidth || y >= m_PullScreenHeight)))
-					continue;
-
-				if (dist2 <= outer && dist2 >= inner)
+				if (dist2 <= outer * outer && dist2 >= inner * inner)
 				{
 					fm[y * nPitch + x] = 0;
 				}
@@ -481,6 +494,8 @@ bool CDrawCircleDlg::DrawCircumscribedCircle()
 	return true;
 }
 
+
+
 bool CDrawCircleDlg::CheckAllPointCircleValid()
 {
 	for (Circle& pointCircle : m_PointCircles)
@@ -492,6 +507,35 @@ bool CDrawCircleDlg::CheckAllPointCircleValid()
 	return true;
 }
 
+void CDrawCircleDlg::HandleCircumscCircleResult(bool isDrawn)
+{
+	if (isDrawn)
+	{
+		CircumscCircleDlg circumscCircleDlg;
+
+		if (circumscCircleDlg.DoModal() == IDOK)
+		{
+			int inputRadius = circumscCircleDlg.m_CircumscCircleBoundWidth;
+
+			if (inputRadius <= 0)
+				return;
+
+			if (CircumscCircle.IsDefault() == false)
+			{
+				DrawCircle(fm, CircumscCircle, false, inputRadius);
+			}
+				
+		}
+	}
+
+	else
+	{
+		AfxMessageBox(_T("외접원 생성에 실패했습니다."), MB_OK | MB_ICONWARNING);
+
+		ResetAll();
+	}
+}
+
 void CDrawCircleDlg::ResetAll()
 {
 	CircumscCircle.SetDefault();
@@ -501,7 +545,7 @@ void CDrawCircleDlg::ResetAll()
 		pointCircle.SetDefault();
 	}
 
-	for(int i = 0; i < sizeof(m_PointCircleCenterPosTextStatics) / sizeof(m_PointCircleCenterPosTextStatics[0]); i++)
+	for (int i = 0; i < sizeof(m_PointCircleCenterPosTextStatics) / sizeof(m_PointCircleCenterPosTextStatics[0]); i++)
 	{
 		HideTextStatic(i);
 	}

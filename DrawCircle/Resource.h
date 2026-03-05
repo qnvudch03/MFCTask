@@ -8,11 +8,15 @@
 #define IDD_DRAWCIRCLE_DIALOG           102
 #define IDR_MAINFRAME                   128
 #define IDD_POINTCIRCLERADIUS_DIALOG    132
+#define IDD_CIRCUMSCCIRCLE_DIALOG       133
 #define IDCANCEL                        1000
 #define IDC_EDIT2                       1002
 #define IDC_RADIUS_EDIT                 1002
 #define IDC_POINTCIRCLERADIUS_STATIC    1003
 #define IDC_RESET_BUTTON                1005
+#define IDC_RADIUSWIDTH_STATIC          1006
+#define IDC_BoundWidth_EDIT             1007
+#define IDC_CIRCLEBOUNDWIDTH_EDIT       1007
 
 // Next default values for new objects
 // 
@@ -20,7 +24,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1006
+#define _APS_NEXT_CONTROL_VALUE         1008
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
