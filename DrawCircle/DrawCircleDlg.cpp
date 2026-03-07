@@ -11,12 +11,19 @@
 #include "PointCircleRadiusDlg.h"
 #include "CircumscCircleDlg.h"
 
+#include <thread>
+#include <chrono>
+#include <vector>
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
+
+using namespace std;
+using namespace chrono;
 
 class CAboutDlg : public CDialogEx
 {
@@ -86,6 +93,8 @@ BEGIN_MESSAGE_MAP(CDrawCircleDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_RESET_BUTTON, &CDrawCircleDlg::OnBnClickedResetButton)
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
+	ON_WM_MOUSELEAVE()
+	ON_BN_CLICKED(IDC_RANDOMMOVE_BUTTON, &CDrawCircleDlg::OnBnClickedRandommoveButton)
 END_MESSAGE_MAP()
 
 
@@ -122,6 +131,7 @@ BOOL CDrawCircleDlg::OnInitDialog()
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 
+	InitDialog();
 	InitImage();
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
@@ -187,6 +197,18 @@ void CDrawCircleDlg::ShowImage()
 	m_Image.Draw(dc, 0, 0);
 }
 
+void CDrawCircleDlg::InitDialog()
+{
+	m_RandomMoveButton = GetDlgItem(IDC_RANDOMMOVE_BUTTON);
+	m_RestButton = GetDlgItem(IDC_RESET_BUTTON);
+
+	if(m_RandomMoveButton != nullptr)
+	{
+		SetVisibilityButton(m_RandomMoveButton, false);
+	}
+
+}
+
 void CDrawCircleDlg::InitImage()
 {
 	CRect rect;
@@ -228,14 +250,8 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 	m_IsMouseButtonDown = true;
 
-	if (IsClickedOnPointCircle(point))
-	{
-
-	}
-
-	else
+	if (IsClickedOnPointCircle(point) == false)
 		TryAddPointCircle(point);
-
 
 	CDialogEx::OnLButtonDown(nFlags, point);
 
@@ -249,7 +265,7 @@ void CDrawCircleDlg::UpdateDlg()
 
 	DrawCircumscCircle();
 
-	Invalidate();
+	Invalidate(FALSE);
 }
 
 void CDrawCircleDlg::DrawPointCircles()
@@ -401,10 +417,9 @@ void CDrawCircleDlg::PrintCircleCenterPos(Circle circle, int assignedIndex)
 	const int textHeight = 20;
 
 	int textAnchor_X = (circle.center.x < m_PullScreenWidth / 2) ? 1 : -1;
-	int textAnchor_Y = (circle.center.y < m_PullScreenHeight / 2) ? 1 : -1;
 
 	int startPosX = circle.center.x + textAnchor_X * circle.radius;
-	int startPosY = circle.center.y + textAnchor_Y * circle.radius;
+	int startPosY = circle.center.y - circle.radius;
 
 	int left = startPosX;
 	int top = startPosY - offset_Y * 2;
@@ -436,6 +451,49 @@ void CDrawCircleDlg::PrintCircleCenterPos(Circle circle, int assignedIndex)
 	CString str;
 	str.Format(_T("X: %d, Y: %d"), circle.center.x, circle.center.y);
 	pStatic->SetWindowText(str);
+}
+
+void CDrawCircleDlg::ChangeCirclePosToRandom()
+{
+	std::vector<CPoint> usedPoints;
+
+	unsigned int seed = (unsigned int)chrono::system_clock::now().time_since_epoch().count();
+
+	srand(seed);
+
+	for (int i = 0; i < MAX_POINT_CIRCLES; i++)
+	{
+		CPoint randomPos;
+		bool isSame = false;
+
+		do
+		{
+			isSame = false;
+
+			int x = rand() % m_PullScreenWidth;
+			int y = rand() % m_PullScreenHeight;
+
+			randomPos = CPoint(x, y);
+
+			for (CPoint& pt : usedPoints)
+			{
+				if (pt == randomPos)
+				{
+					isSame = true;
+					break;
+				}
+			}
+
+		} while (isSame);
+
+		m_PointCircles[i].center = randomPos;
+
+		usedPoints.push_back(randomPos);
+	}
+
+	usedPoints.clear();
+
+	UpdateDlg();
 }
 
 void CDrawCircleDlg::CreateCirclePosTextStatics()
@@ -532,8 +590,6 @@ bool CDrawCircleDlg::DrawCircumscribedCircle()
 	CircumscCircle.center = CPoint((int)Ux, (int)Uy);
 	CircumscCircle.radius = (int)sqrt(r);
 
-	//DrawCircle(fm, CircumscCircle, false, 5);
-
 	return true;
 }
 
@@ -570,6 +626,8 @@ void CDrawCircleDlg::HandleCircumscCircleResult(bool isDrawn)
 			}
 
 		}
+
+		SetVisibilityButton(m_RandomMoveButton, true);
 	}
 
 	else if (isDrawn && m_catchedCircleWidth > 0)
@@ -606,7 +664,9 @@ void CDrawCircleDlg::ResetAll()
 	m_FocusedPointCircleIndex = -1;
 	m_catchedCircleWidth = 0;
 
-	Invalidate();
+	SetVisibilityButton(m_RandomMoveButton, false);
+
+	Invalidate(FALSE);
 }
 
 void CDrawCircleDlg::OnBnClickedResetButton()
@@ -658,4 +718,96 @@ bool CDrawCircleDlg::CheckIsValidMousePos(CPoint point)
 		return false;
 
 	return true;
+}
+
+void CDrawCircleDlg::SetVisibilityButton(CWnd* cnwd, bool bVisible)
+{
+	if (cnwd == nullptr)
+		return;
+
+	if(bVisible)
+		cnwd->ShowWindow(SW_SHOW);
+
+	else
+		cnwd->ShowWindow(SW_HIDE);
+}
+
+void CDrawCircleDlg::OnMouseLeave()
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+
+	/*m_IsMouseButtonDown = false;
+	m_FocusedPointCircleIndex = -1;
+
+	CDialogEx::OnMouseLeave();*/
+}
+
+void CDrawCircleDlg::OnBnClickedRandommoveButton()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+
+	PlayRandomCircleAnim();
+}
+
+
+void threadProcess(CWnd* dlg)
+{
+
+	CDrawCircleDlg* drawCircleDlg = dynamic_cast<CDrawCircleDlg*>(dlg);
+
+	if(drawCircleDlg == nullptr)
+		return;
+
+	auto start = system_clock::now();
+
+	int drawCount = 0;
+	int targetDrawCount = 10;
+
+	int randomDrawDelay = 2 * 100;
+
+	while (drawCount != targetDrawCount)
+	{
+		auto now = system_clock::now();
+
+		auto millisec = duration_cast<milliseconds>(now - start);
+
+		if (millisec.count() >= randomDrawDelay)
+		{
+			start = system_clock::now();
+
+			{
+				//////랜덤 좌표 갱신
+				drawCircleDlg->ChangeCirclePosToRandom();
+			}
+
+			drawCount++;
+		}
+
+		else
+			Sleep(50);
+	}
+
+	drawCircleDlg->ShowUserButtons();
+	drawCircleDlg->UpdateDlg();
+}
+
+void CDrawCircleDlg::PlayRandomCircleAnim()
+{
+	thread _thread0(threadProcess, this);
+
+	HideUserButtons();
+
+	_thread0.detach();
+}
+
+void CDrawCircleDlg::HideUserButtons()
+{
+	SetVisibilityButton(m_RandomMoveButton, false);
+	SetVisibilityButton(m_RestButton, false);
+}
+
+void CDrawCircleDlg::ShowUserButtons()
+{
+	SetVisibilityButton(m_RandomMoveButton, true);
+	SetVisibilityButton(m_RestButton, true);
 }

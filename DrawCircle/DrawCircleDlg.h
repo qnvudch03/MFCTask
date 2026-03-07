@@ -61,6 +61,8 @@ public:
 	afx_msg void OnBnClickedResetButton();
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnMouseLeave();
+	afx_msg void OnBnClickedRandommoveButton();
 
 
 private:
@@ -75,12 +77,16 @@ private:
 
 	CImage m_Image;
 	unsigned char* fm;
+	void InitDialog();
+
+	CWnd* m_RestButton = nullptr;
+	CWnd* m_RandomMoveButton = nullptr;
 	void InitImage();
 
 
 	void ShowImage();
 
-	void UpdateDlg();
+
 	void DrawPointCircles();
 	void DrawCircumscCircle();
 
@@ -111,4 +117,17 @@ private:
 	bool CheckAllPointCircleValid();
 
 	bool CheckIsValidMousePos(CPoint point);
+
+	void SetVisibilityButton(CWnd* cnwd, bool bVisible);
+
+	void PlayRandomCircleAnim();
+
+
+public:
+
+	void ChangeCirclePosToRandom();
+	void UpdateDlg();
+
+	void HideUserButtons();
+	void ShowUserButtons();
 };

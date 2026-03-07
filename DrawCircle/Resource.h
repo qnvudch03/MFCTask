@@ -15,7 +15,7 @@
 #define IDC_POINTCIRCLERADIUS_STATIC    1003
 #define IDC_RESET_BUTTON                1005
 #define IDC_RADIUSWIDTH_STATIC          1006
-#define IDC_BoundWidth_EDIT             1007
+#define IDC_RANDOMMOVE_BUTTON           1006
 #define IDC_CIRCLEBOUNDWIDTH_EDIT       1007
 
 // Next default values for new objects
