@@ -84,6 +84,8 @@ BEGIN_MESSAGE_MAP(CDrawCircleDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_WM_LBUTTONDOWN()
 	ON_BN_CLICKED(IDC_RESET_BUTTON, &CDrawCircleDlg::OnBnClickedResetButton)
+	ON_WM_LBUTTONUP()
+	ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 
@@ -221,37 +223,21 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
 
-	if (point.x < 0 || point.y < 0)
+	if (CheckIsValidMousePos(point) == false)
 		return;
 
-	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
+	m_IsMouseButtonDown = true;
+
+	if (IsClickedOnPointCircle(point))
 	{
-		Circle& targetPointCircle = m_PointCircles[i];
 
-		if (targetPointCircle.IsDefault() == false)
-			continue;
-
-		PointCircleRadiusDlg pointCircleRadiusDlg;
-
-		if (pointCircleRadiusDlg.DoModal() == IDOK)
-		{
-			int inputRadius = pointCircleRadiusDlg.m_Radius;
-
-			if (inputRadius <= 0)
-				return;
-
-			TryAddPointCircle(point, inputRadius);
-
-			UpdateDlg();
-
-			return;
-		}
 	}
 
+	else
+		TryAddPointCircle(point);
 
 
 	CDialogEx::OnLButtonDown(nFlags, point);
-
 
 }
 
@@ -261,12 +247,7 @@ void CDrawCircleDlg::UpdateDlg()
 
 	DrawPointCircles();
 
-	if (CheckAllPointCircleValid())
-	{
-		bool circumscCircleResult = DrawCircumscribedCircle();
-		HandleCircumscCircleResult(circumscCircleResult);
-	}
-
+	DrawCircumscCircle();
 
 	Invalidate();
 }
@@ -288,7 +269,43 @@ void CDrawCircleDlg::DrawPointCircles()
 	}
 }
 
-void CDrawCircleDlg::TryAddPointCircle(CPoint point, int radius)
+void CDrawCircleDlg::DrawCircumscCircle()
+{
+	if (CheckAllPointCircleValid())
+	{
+		bool circumscCircleResult = DrawCircumscribedCircle();
+		HandleCircumscCircleResult(circumscCircleResult);
+	}
+}
+
+void CDrawCircleDlg::TryAddPointCircle(CPoint point)
+{
+	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
+	{
+		Circle& targetPointCircle = m_PointCircles[i];
+
+		if (targetPointCircle.IsDefault() == false)
+			continue;
+
+		PointCircleRadiusDlg pointCircleRadiusDlg;
+
+		if (pointCircleRadiusDlg.DoModal() == IDOK)
+		{
+			int inputRadius = pointCircleRadiusDlg.m_Radius;
+
+			if (inputRadius <= 0)
+				return;
+
+			AddPointCircle(point, inputRadius);
+
+			UpdateDlg();
+
+			return;
+		}
+	}
+}
+
+void CDrawCircleDlg::AddPointCircle(CPoint point, int radius)
 {
 	for (int i = 0; i < sizeof(m_PointCircles) / sizeof(m_PointCircles[0]); i++)
 	{
@@ -449,6 +466,32 @@ void CDrawCircleDlg::HideTextStatic(int index)
 	targetStatic->ShowWindow(SW_HIDE);
 }
 
+bool CDrawCircleDlg::IsClickedOnPointCircle(CPoint point)
+{
+	for (int i = 0; i < MAX_POINT_CIRCLES; i++)
+	{
+		const Circle& targetCircle = m_PointCircles[i];
+
+		if (targetCircle.IsDefault())
+			continue;
+
+		CRect rect(
+			targetCircle.center.x - targetCircle.radius,
+			targetCircle.center.y - targetCircle.radius,
+			targetCircle.center.x + targetCircle.radius,
+			targetCircle.center.y + targetCircle.radius
+		);
+
+		if (rect.PtInRect(point))
+		{
+			m_FocusedPointCircleIndex = i;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool CDrawCircleDlg::DrawCircumscribedCircle()
 {
 	CircumscCircle.SetDefault();
@@ -509,26 +552,33 @@ bool CDrawCircleDlg::CheckAllPointCircleValid()
 
 void CDrawCircleDlg::HandleCircumscCircleResult(bool isDrawn)
 {
-	if (isDrawn)
+	if (isDrawn && m_catchedCircleWidth == 0)
 	{
 		CircumscCircleDlg circumscCircleDlg;
 
 		if (circumscCircleDlg.DoModal() == IDOK)
 		{
-			int inputRadius = circumscCircleDlg.m_CircumscCircleBoundWidth;
+			int inputWidth = circumscCircleDlg.m_CircumscCircleBoundWidth;
+			m_catchedCircleWidth = inputWidth;
 
-			if (inputRadius <= 0)
+			if (inputWidth <= 0)
 				return;
 
 			if (CircumscCircle.IsDefault() == false)
 			{
-				DrawCircle(fm, CircumscCircle, false, inputRadius);
+				DrawCircle(fm, CircumscCircle, false, inputWidth);
 			}
-				
+
 		}
 	}
 
+	else if (isDrawn && m_catchedCircleWidth > 0)
+	{
+		DrawCircle(fm, CircumscCircle, false, m_catchedCircleWidth);
+	}
+
 	else
+
 	{
 		AfxMessageBox(_T("외접원 생성에 실패했습니다."), MB_OK | MB_ICONWARNING);
 
@@ -552,6 +602,10 @@ void CDrawCircleDlg::ResetAll()
 
 	memset(fm, 255, m_PullScreenWidth * m_PullScreenHeight);
 
+	m_IsMouseButtonDown = false;
+	m_FocusedPointCircleIndex = -1;
+	m_catchedCircleWidth = 0;
+
 	Invalidate();
 }
 
@@ -559,4 +613,49 @@ void CDrawCircleDlg::OnBnClickedResetButton()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	ResetAll();
+}
+
+void CDrawCircleDlg::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+
+	m_IsMouseButtonDown = false;
+
+	m_FocusedPointCircleIndex = -1;
+
+	CDialogEx::OnLButtonUp(nFlags, point);
+}
+
+void CDrawCircleDlg::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+
+	if (CheckIsValidMousePos(point) == false)
+		return;
+
+	if (m_IsMouseButtonDown == false)
+		return;
+
+	if (m_FocusedPointCircleIndex == -1)
+		return;
+
+	if (m_PointCircles[m_FocusedPointCircleIndex].IsDefault())
+		return;
+
+	Circle& focusedCircle = m_PointCircles[m_FocusedPointCircleIndex];
+
+	focusedCircle.center = point;
+
+	UpdateDlg();
+
+	CDialogEx::OnMouseMove(nFlags, point);
+}
+
+bool CDrawCircleDlg::CheckIsValidMousePos(CPoint point)
+{
+	if (point.x < 0 || point.y < 0 ||
+		point.x > m_PullScreenWidth || point.y > m_PullScreenHeight)
+		return false;
+
+	return true;
 }

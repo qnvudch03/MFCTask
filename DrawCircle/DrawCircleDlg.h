@@ -58,9 +58,16 @@ protected:
 
 public:
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnBnClickedResetButton();
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 
 
 private:
+
+	bool m_IsMouseButtonDown = false;
+
+	int m_FocusedPointCircleIndex = -1;
 
 	int m_PullScreenWidth = 0;
 	int m_PullScreenHeight = 0;
@@ -75,20 +82,25 @@ private:
 
 	void UpdateDlg();
 	void DrawPointCircles();
+	void DrawCircumscCircle();
 
 	//Point Circle 관련
 	Circle m_PointCircles[MAX_POINT_CIRCLES];
 	CStatic* m_PointCircleCenterPosTextStatics[MAX_POINT_CIRCLES];
 
-	void TryAddPointCircle(CPoint point, int radius);
+	void TryAddPointCircle(CPoint point);
+	void AddPointCircle(CPoint point, int radius);
 	void DrawCircle(unsigned char* fm, Circle circle, bool bIsFilled = true, int boundWidth = 0.0f);
 	void PrintCircleCenterPos(Circle circle, int assignedIndex);
 
 	void CreateCirclePosTextStatics();
 	void HideTextStatic(int index);
 
+	bool IsClickedOnPointCircle(CPoint point);
+
 	//외접원
 	Circle CircumscCircle;
+	int m_catchedCircleWidth = 0;
 	bool DrawCircumscribedCircle();
 	void HandleCircumscCircleResult(bool isDrawn);
 
@@ -98,6 +110,5 @@ private:
 
 	bool CheckAllPointCircleValid();
 
-public:
-	afx_msg void OnBnClickedResetButton();
+	bool CheckIsValidMousePos(CPoint point);
 };
